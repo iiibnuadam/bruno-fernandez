@@ -8,6 +8,7 @@ import CollectionSearch from './CollectionSearch/index';
 import InlineCollectionCreator from './InlineCollectionCreator';
 import path, { normalizePath } from 'utils/common/path';
 import { isScratchCollection } from 'utils/collections';
+import { doesCollectionHaveItemsMatchingSearchText } from 'utils/collections/search';
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
@@ -96,6 +97,9 @@ const Collections = ({ showSearch, isCreatingCollection, onCreateClick, onDismis
           }
           return <GitRemoteCollectionRow entry={entry.entry} key={entry.key} />;
         })}
+        {searchText && sidebarEntries.every((entry) => entry.kind === 'ghost' || !doesCollectionHaveItemsMatchingSearchText(entry.collection, searchText)) ? (
+          <div className="sidebar-search-empty">No requests match "{searchText}"</div>
+        ) : null}
       </div>
     </StyledWrapper>
   );

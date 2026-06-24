@@ -470,6 +470,47 @@ const checkoutRemoteGitBranch = async (win, { gitRootPath, remoteName, branchNam
   });
 };
 
+const createGitBranch = async (gitRootPath, branchName, sourceBranch = null) => {
+  return new Promise((resolve, reject) => {
+    const git = getSimpleGitInstanceForPath(gitRootPath);
+    const args = sourceBranch ? [branchName, sourceBranch] : [branchName];
+    git.checkout(['-b', ...args], (err, res) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(res);
+    });
+  });
+};
+
+const deleteGitBranch = async (gitRootPath, branchName, force = false) => {
+  return new Promise((resolve, reject) => {
+    const git = getSimpleGitInstanceForPath(gitRootPath);
+    const flag = force ? '-D' : '-d';
+    git.raw(['branch', flag, branchName], (err, res) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(res);
+    });
+  });
+};
+
+const mergeGitBranch = async (gitRootPath, branchName) => {
+  return new Promise((resolve, reject) => {
+    const git = getSimpleGitInstanceForPath(gitRootPath);
+    git.merge([branchName], (err, res) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(res);
+    });
+  });
+};
+
 const getCollectionGitLogs = async (gitRootPath) => {
   const git = getSimpleGitInstanceForPath(gitRootPath);
 
@@ -674,7 +715,8 @@ const pushGitChanges = async (win, { gitRootPath, processUid, remote, remoteBran
 
 const pullGitChanges = async (win, data) => {
   const { gitRootPath, processUid, remote, remoteBranch, strategy } = data;
-  if (strategy !== '--no-rebase' && strategy !== '--ff-only') {
+  const validStrategies = ['--no-rebase', '--ff-only', '--rebase'];
+  if (!validStrategies.includes(strategy)) {
     throw new Error('Invalid strategy');
   }
   return new Promise((resolve, reject) => {
@@ -1098,6 +1140,46 @@ const continueMerge = async (gitRootPath, conflictedFiles, commitMessage) => {
     } catch (error) {
       reject(error);
     }
+  });
+};
+
+const popStash = async (gitRootPath, stashIndex = 0) => {
+  return new Promise((resolve, reject) => {
+    const git = getSimpleGitInstanceForPath(gitRootPath);
+    const ref = stashIndex === 0 ? 'stash' : `stash@{${stashIndex}}`;
+    git.stash(['pop', ref], (err, res) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(res);
+      }
+    });
+  });
+};
+
+const continueRebase = async (gitRootPath) => {
+  return new Promise((resolve, reject) => {
+    const git = getSimpleGitInstanceForPath(gitRootPath);
+    git.raw(['rebase', '--continue'], (err, res) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(res);
+      }
+    });
+  });
+};
+
+const abortRebase = async (gitRootPath) => {
+  return new Promise((resolve, reject) => {
+    const git = getSimpleGitInstanceForPath(gitRootPath);
+    git.raw(['rebase', '--abort'], (err, res) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(res);
+      }
+    });
   });
 };
 
@@ -1841,6 +1923,9 @@ module.exports = {
   getDefaultGitBranch,
   getCurrentGitBranch,
   checkoutGitBranch,
+  createGitBranch,
+  deleteGitBranch,
+  mergeGitBranch,
   getCollectionGitLogs,
   getCollectionGitTagsWithDetails,
   canPush,
@@ -1865,6 +1950,9 @@ module.exports = {
   abortConflictResolution,
   continueMerge,
   resolveConflict,
+  popStash,
+  continueRebase,
+  abortRebase,
   getCommitFiles,
   getCommitFileDiff,
   getCommitCompareFiles,

@@ -94,6 +94,10 @@ const config = {
       {
         target: 'nsis',
         arch: ['x64', 'arm64']
+      },
+      {
+        target: 'msi',
+        arch: ['x64', 'arm64']
       }
     ],
     sign: null,
@@ -106,6 +110,11 @@ const config = {
     allowElevation: true,
     createDesktopShortcut: true,
     createStartMenuShortcut: true
+  },
+  msi: {
+    artifactName: '${name}_${version}_${arch}_win.${ext}',
+    shortcutName: 'PAKPOS',
+    createDesktopShortcut: true
   }
 };
 

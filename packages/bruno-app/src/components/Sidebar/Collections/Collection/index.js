@@ -301,6 +301,14 @@ const Collection = ({ collection, searchText }) => {
     }
   }, [isCollectionFocused]);
 
+  // Mount the collection automatically when the user is searching so that
+  // all items are loaded into the sidebar and can be filtered.
+  useEffect(() => {
+    if (hasSearchText) {
+      ensureCollectionIsMounted();
+    }
+  }, [hasSearchText]);
+
   // Debounce showing empty state to prevent flicker
   // Race condition: isLoading can become false before items batch arrives from IPC
   useEffect(() => {

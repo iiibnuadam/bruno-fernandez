@@ -97,6 +97,22 @@ const StyledWrapper = styled.div`
     color: ${(props) => props.theme.colors.text.warning};
   }
 
+  .git-recovery-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid ${(props) => props.theme.border.border1};
+  }
+
+  .git-recovery-label {
+    font-size: ${(props) => props.theme.font.size.sm};
+    color: ${(props) => props.theme.colors.text.muted};
+    margin-right: 0.25rem;
+  }
+
   .git-tabs {
     display: flex;
     gap: 0.5rem;
@@ -137,6 +153,12 @@ const StyledWrapper = styled.div`
     padding: 0;
   }
 
+  .git-tab-content-vertical {
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+  }
+
   .git-sidebar {
     width: 280px;
     min-width: 240px;
@@ -167,6 +189,40 @@ const StyledWrapper = styled.div`
     text-transform: uppercase;
     color: ${(props) => props.theme.colors.text.muted};
     margin-bottom: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .git-state-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: ${(props) => props.theme.border.radius.base};
+    font-size: ${(props) => props.theme.font.size.sm};
+
+    &.merge {
+      background: ${(props) => props.theme.colors.text.warning}15;
+      border: 1px solid ${(props) => props.theme.colors.text.warning}40;
+      color: ${(props) => props.theme.colors.text.warning};
+    }
+
+    &.rebase {
+      background: ${(props) => props.theme.colors.text.link}15;
+      border: 1px solid ${(props) => props.theme.colors.text.link}40;
+      color: ${(props) => props.theme.colors.text.link};
+    }
+  }
+
+  .git-state-banner-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .git-state-banner-actions {
+    display: flex;
+    gap: 0.25rem;
     flex-shrink: 0;
   }
 
@@ -241,6 +297,7 @@ const StyledWrapper = styled.div`
     color: ${(props) => props.theme.text};
     cursor: pointer;
     white-space: nowrap;
+    transition: all 0.15s ease;
 
     &:hover {
       background: ${(props) => props.theme.sidebar.collection.item.hoverBg};
@@ -301,13 +358,14 @@ const StyledWrapper = styled.div`
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.125rem 0.375rem;
+    padding: 0.25rem 0.5rem;
     font-size: ${(props) => props.theme.font.size.xs};
     border-radius: ${(props) => props.theme.border.radius.base};
     border: 1px solid ${(props) => props.theme.border.border1};
     background: ${(props) => props.theme.background.base};
     color: ${(props) => props.theme.text};
     cursor: pointer;
+    transition: all 0.15s ease;
 
     &:hover:not(:disabled) {
       background: ${(props) => props.theme.sidebar.collection.item.hoverBg};
@@ -317,11 +375,63 @@ const StyledWrapper = styled.div`
       opacity: 0.5;
       cursor: not-allowed;
     }
+
+    &.primary {
+      background: ${(props) => props.theme.colors.text.link}15;
+      border-color: ${(props) => props.theme.colors.text.link}40;
+      color: ${(props) => props.theme.colors.text.link};
+
+      &:hover:not(:disabled) {
+        background: ${(props) => props.theme.colors.text.link};
+        color: white;
+      }
+    }
+
+    &.success {
+      background: ${(props) => props.theme.colors.text.green}15;
+      border-color: ${(props) => props.theme.colors.text.green}40;
+      color: ${(props) => props.theme.colors.text.green};
+
+      &:hover:not(:disabled) {
+        background: ${(props) => props.theme.colors.text.green};
+        color: white;
+      }
+    }
+
+    &.danger {
+      background: ${(props) => props.theme.colors.text.danger}15;
+      border-color: ${(props) => props.theme.colors.text.danger}40;
+      color: ${(props) => props.theme.colors.text.danger};
+
+      &:hover:not(:disabled) {
+        background: ${(props) => props.theme.colors.text.danger};
+        color: white;
+      }
+    }
+
+    &.info {
+      background: ${(props) => props.theme.colors.text.warning}10;
+      border-color: ${(props) => props.theme.colors.text.warning}40;
+      color: ${(props) => props.theme.colors.text.warning};
+
+      &:hover:not(:disabled) {
+        background: ${(props) => props.theme.colors.text.warning};
+        color: white;
+      }
+    }
   }
 
   .git-commit-btn {
     padding: 0.375rem 0.75rem;
     font-weight: 500;
+    background: ${(props) => props.theme.colors.text.green}15;
+    border-color: ${(props) => props.theme.colors.text.green}40;
+    color: ${(props) => props.theme.colors.text.green};
+
+    &:hover:not(:disabled) {
+      background: ${(props) => props.theme.colors.text.green};
+      color: white;
+    }
   }
 
   .git-diff-pane {
@@ -432,6 +542,133 @@ const StyledWrapper = styled.div`
       outline: none;
       border-color: ${(props) => props.theme.colors.text.link};
     }
+  }
+
+  .git-stash-section {
+    margin-top: 0.5rem;
+  }
+
+  .git-stash-create {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .git-stash-input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid ${(props) => props.theme.border.border1};
+    border-radius: ${(props) => props.theme.border.radius.base};
+    background: ${(props) => props.theme.background.base};
+    color: ${(props) => props.theme.text};
+    font-size: ${(props) => props.theme.font.size.sm};
+
+    &:focus {
+      outline: none;
+      border-color: ${(props) => props.theme.colors.text.link};
+    }
+  }
+
+  .git-stash-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .git-stash-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: ${(props) => props.theme.border.radius.base};
+    background: ${(props) => props.theme.background.base};
+    font-size: ${(props) => props.theme.font.size.sm};
+  }
+
+  .git-stash-message {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .git-stash-actions {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+
+  .git-stash-meta {
+    font-size: ${(props) => props.theme.font.size.xs};
+    color: ${(props) => props.theme.colors.text.muted};
+    flex-shrink: 0;
+  }
+
+  .git-branch-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    overflow: auto;
+  }
+
+  .git-branch-create {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .git-branch-input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid ${(props) => props.theme.border.border1};
+    border-radius: ${(props) => props.theme.border.radius.base};
+    background: ${(props) => props.theme.background.base};
+    color: ${(props) => props.theme.text};
+    font-size: ${(props) => props.theme.font.size.sm};
+  }
+
+  .git-branch-row-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-radius: ${(props) => props.theme.border.radius.base};
+    cursor: pointer;
+    font-size: ${(props) => props.theme.font.size.sm};
+
+    &:hover {
+      background: ${(props) => props.theme.sidebar.collection.item.hoverBg};
+    }
+
+    &.current {
+      background: ${(props) => props.theme.sidebar.collection.item.activeBg};
+      cursor: default;
+    }
+  }
+
+  .git-branch-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .git-branch-current-badge {
+    font-size: ${(props) => props.theme.font.size.xs};
+    color: ${(props) => props.theme.colors.text.green};
+    font-weight: 500;
+  }
+
+  .git-branch-actions {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
   }
 
   .git-empty-state {

@@ -16,7 +16,13 @@ const Wrapper = styled.div`
     padding-bottom: 4px;
     overflow-y: auto;
     overflow-x: hidden;
+  }
 
+  .sidebar-search-empty {
+    padding: 1rem;
+    text-align: center;
+    font-size: ${(props) => props.theme.font.size.sm};
+    color: ${(props) => props.theme.colors.text.muted};
   }
 `;
 

@@ -99,6 +99,13 @@ export const gitSlice = createSlice({
       }
       state.collectionGit[collectionUid].commitFileDiffs[`${commitHash}:${filePath}`] = diff;
     },
+    setGitStashes: (state, action) => {
+      const { collectionUid, stashes } = action.payload;
+      if (!state.collectionGit[collectionUid]) {
+        state.collectionGit[collectionUid] = {};
+      }
+      state.collectionGit[collectionUid].stashes = stashes;
+    },
     setGitWorkspaceSettings: (state, action) => {
       const { workspaceUid, settings } = action.payload;
       if (!state.workspaceSettings[workspaceUid]) {
@@ -134,6 +141,7 @@ export const {
   setGitGraph,
   setCommitFiles,
   setCommitFileDiff,
+  setGitStashes,
   setGitWorkspaceSettings,
   showGitCredentialsModal,
   hideGitCredentialsModal,
@@ -303,6 +311,65 @@ export const checkoutGitBranch = (collection, branchName) => async (dispatch) =>
   }
 };
 
+export const createGitBranch = (collection, branchName, sourceBranch = null) => async (dispatch) => {
+  if (!collection?.pathname || !branchName?.trim()) return;
+
+  try {
+    const { ipcRenderer } = window;
+    await ipcRenderer.invoke('renderer:create-git-branch', {
+      collectionPath: collection.pathname,
+      branchName: branchName.trim(),
+      sourceBranch
+    });
+    await dispatch(fetchGitStatus(collection, { skipLogs: true }));
+    toast.success(`Created branch ${branchName.trim()}`);
+  } catch (error) {
+    console.error('[Git] Error creating branch:', error);
+    dispatch(setGitError({ collectionUid: collection.uid, error: error.message }));
+    toast.error(error.message || 'Failed to create branch');
+    throw error;
+  }
+};
+
+export const deleteGitBranch = (collection, branchName, force = false) => async (dispatch) => {
+  if (!collection?.pathname || !branchName) return;
+
+  try {
+    const { ipcRenderer } = window;
+    await ipcRenderer.invoke('renderer:delete-git-branch', {
+      collectionPath: collection.pathname,
+      branchName,
+      force
+    });
+    await dispatch(fetchGitStatus(collection, { skipLogs: true }));
+    toast.success(`Deleted branch ${branchName}`);
+  } catch (error) {
+    console.error('[Git] Error deleting branch:', error);
+    dispatch(setGitError({ collectionUid: collection.uid, error: error.message }));
+    toast.error(error.message || 'Failed to delete branch');
+    throw error;
+  }
+};
+
+export const mergeGitBranch = (collection, branchName) => async (dispatch) => {
+  if (!collection?.pathname || !branchName) return;
+
+  try {
+    const { ipcRenderer } = window;
+    await ipcRenderer.invoke('renderer:merge-git-branch', {
+      collectionPath: collection.pathname,
+      branchName
+    });
+    await dispatch(fetchGitStatus(collection, { skipLogs: true }));
+    toast.success(`Merged branch ${branchName}`);
+  } catch (error) {
+    console.error('[Git] Error merging branch:', error);
+    dispatch(setGitError({ collectionUid: collection.uid, error: error.message }));
+    toast.error(error.message || 'Failed to merge branch');
+    throw error;
+  }
+};
+
 export const resolveGitConflict = (collection, filePath, strategy) => async (dispatch) => {
   if (!collection?.pathname || !filePath || !strategy) return;
 
@@ -316,6 +383,129 @@ export const resolveGitConflict = (collection, filePath, strategy) => async (dis
     await dispatch(fetchGitStatus(collection, { skipLogs: true }));
   } catch (error) {
     console.error('[Git] Error resolving conflict:', error);
+    dispatch(setGitError({ collectionUid: collection.uid, error: error.message }));
+    throw error;
+  }
+};
+
+export const createGitStash = (collection, message) => async (dispatch) => {
+  if (!collection?.pathname) return;
+
+  try {
+    const { ipcRenderer } = window;
+    await ipcRenderer.invoke('renderer:create-git-stash', {
+      collectionPath: collection.pathname,
+      message
+    });
+    await dispatch(fetchGitStatus(collection, { skipLogs: true }));
+    await dispatch(fetchGitStashes(collection));
+    toast.success('Changes stashed');
+  } catch (error) {
+    console.error('[Git] Error creating stash:', error);
+    dispatch(setGitError({ collectionUid: collection.uid, error: error.message }));
+    toast.error(error.message || 'Failed to stash changes');
+    throw error;
+  }
+};
+
+export const fetchGitStashes = (collection) => async (dispatch) => {
+  if (!collection?.pathname) return;
+
+  try {
+    const { ipcRenderer } = window;
+    const stashes = await ipcRenderer.invoke('renderer:list-git-stashes', {
+      collectionPath: collection.pathname
+    });
+    dispatch(setGitStashes({ collectionUid: collection.uid, stashes: stashes || [] }));
+  } catch (error) {
+    console.error('[Git] Error listing stashes:', error);
+  }
+};
+
+export const applyGitStash = (collection, stashIndex) => async (dispatch) => {
+  if (!collection?.pathname) return;
+
+  try {
+    const { ipcRenderer } = window;
+    await ipcRenderer.invoke('renderer:apply-git-stash', {
+      collectionPath: collection.pathname,
+      stashIndex
+    });
+    await dispatch(fetchGitStatus(collection, { skipLogs: true }));
+    await dispatch(fetchGitStashes(collection));
+    toast.success('Stash applied');
+  } catch (error) {
+    console.error('[Git] Error applying stash:', error);
+    dispatch(setGitError({ collectionUid: collection.uid, error: error.message }));
+    toast.error(error.message || 'Failed to apply stash');
+    throw error;
+  }
+};
+
+export const dropGitStash = (collection, stashIndex) => async (dispatch) => {
+  if (!collection?.pathname) return;
+
+  try {
+    const { ipcRenderer } = window;
+    await ipcRenderer.invoke('renderer:drop-git-stash', {
+      collectionPath: collection.pathname,
+      stashIndex
+    });
+    await dispatch(fetchGitStashes(collection));
+    toast.success('Stash dropped');
+  } catch (error) {
+    console.error('[Git] Error dropping stash:', error);
+    dispatch(setGitError({ collectionUid: collection.uid, error: error.message }));
+    toast.error(error.message || 'Failed to drop stash');
+    throw error;
+  }
+};
+
+export const popGitStash = (collection, stashIndex = 0) => async (dispatch) => {
+  if (!collection?.pathname) return;
+
+  try {
+    const { ipcRenderer } = window;
+    await ipcRenderer.invoke('renderer:pop-git-stash', {
+      collectionPath: collection.pathname,
+      stashIndex
+    });
+    await dispatch(fetchGitStatus(collection, { skipLogs: true }));
+    await dispatch(fetchGitStashes(collection));
+  } catch (error) {
+    console.error('[Git] Error popping stash:', error);
+    dispatch(setGitError({ collectionUid: collection.uid, error: error.message }));
+    throw error;
+  }
+};
+
+export const continueGitRebase = (collection) => async (dispatch) => {
+  if (!collection?.pathname) return;
+
+  try {
+    const { ipcRenderer } = window;
+    await ipcRenderer.invoke('renderer:continue-git-rebase', {
+      collectionPath: collection.pathname
+    });
+    await dispatch(fetchGitStatus(collection));
+  } catch (error) {
+    console.error('[Git] Error continuing rebase:', error);
+    dispatch(setGitError({ collectionUid: collection.uid, error: error.message }));
+    throw error;
+  }
+};
+
+export const abortGitRebase = (collection) => async (dispatch) => {
+  if (!collection?.pathname) return;
+
+  try {
+    const { ipcRenderer } = window;
+    await ipcRenderer.invoke('renderer:abort-git-rebase', {
+      collectionPath: collection.pathname
+    });
+    await dispatch(fetchGitStatus(collection));
+  } catch (error) {
+    console.error('[Git] Error aborting rebase:', error);
     dispatch(setGitError({ collectionUid: collection.uid, error: error.message }));
     throw error;
   }

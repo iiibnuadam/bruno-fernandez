@@ -23,11 +23,21 @@ import {
   discardGitChanges,
   commitGitChanges,
   checkoutGitBranch,
+  createGitBranch,
+  deleteGitBranch,
+  mergeGitBranch,
   fetchGitChanges,
   pullGitChanges,
   pushGitChanges,
   resolveGitConflict,
   abortGitMerge,
+  createGitStash,
+  fetchGitStashes,
+  applyGitStash,
+  dropGitStash,
+  popGitStash,
+  continueGitRebase,
+  abortGitRebase,
   updateGitWorkspaceSettings,
   getGitWorkspaceSettings,
   showGitCredentialsModal
@@ -45,6 +55,8 @@ const GitTab = ({ workspace }) => {
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState('changes');
   const [commitMessage, setCommitMessage] = useState('');
+  const [stashMessage, setStashMessage] = useState('');
+  const [operation, setOperation] = useState(null);
   const [historySelectedHash, setHistorySelectedHash] = useState(null);
   const [historyPanelWidth, setHistoryPanelWidth] = useState(320);
   const [isDraggingHistory, setIsDraggingHistory] = useState(false);
@@ -76,6 +88,7 @@ const GitTab = ({ workspace }) => {
     currentBranch,
     diff,
     selectedFile,
+    stashes,
     loading,
     error
   } = gitState;
@@ -86,7 +99,8 @@ const GitTab = ({ workspace }) => {
 
   useEffect(() => {
     dispatch(fetchGitStatus(gitTarget));
-  }, [gitTarget.uid, gitTarget.pathname]);
+    dispatch(fetchGitStashes(gitTarget));
+  }, [gitTarget.uid, gitTarget.pathname, workspaceUid, dispatch]);
 
   // Clear diff view when the selected file is no longer in the changed files list
   useEffect(() => {
@@ -208,15 +222,19 @@ const GitTab = ({ workspace }) => {
   };
 
   const handleFetch = () => {
+    setOperation('fetch');
     dispatch(fetchGitChanges(gitTarget))
       .then(() => toast.success('Fetched'))
-      .catch((err) => toast.error(err?.message || 'Failed to fetch'));
+      .catch((err) => toast.error(err?.message || 'Failed to fetch'))
+      .finally(() => setOperation(null));
   };
 
   const handlePull = () => {
+    setOperation('pull');
     dispatch(pullGitChanges(gitTarget))
       .then(() => toast.success('Pulled'))
-      .catch((err) => toast.error(err?.message || 'Failed to pull'));
+      .catch((err) => toast.error(err?.message || 'Failed to pull'))
+      .finally(() => setOperation(null));
   };
 
   const handlePush = () => {
@@ -224,9 +242,11 @@ const GitTab = ({ workspace }) => {
       handleOpenCredentials();
       return;
     }
+    setOperation('push');
     dispatch(pushGitChanges(gitTarget))
       .then(() => toast.success('Pushed'))
-      .catch((err) => toast.error(err?.message || 'Failed to push'));
+      .catch((err) => toast.error(err?.message || 'Failed to push'))
+      .finally(() => setOperation(null));
   };
 
   const handleSelectFile = (file, type) => {
@@ -268,6 +288,56 @@ const GitTab = ({ workspace }) => {
     dispatch(abortGitMerge(gitTarget))
       .then(() => toast.success('Merge aborted'))
       .catch((err) => toast.error(err?.message || 'Failed to abort merge'));
+  };
+
+  const handlePullWithRebase = () => {
+    setOperation('pull');
+    dispatch(pullGitChanges(gitTarget, { strategy: '--rebase' }))
+      .then(() => toast.success('Pulled with rebase'))
+      .catch((err) => toast.error(err?.message || 'Failed to pull with rebase'))
+      .finally(() => setOperation(null));
+  };
+
+  const handlePopStash = (index = 0) => {
+    dispatch(popGitStash(gitTarget, index))
+      .then(() => toast.success('Stash popped'))
+      .catch((err) => toast.error(err?.message || 'Failed to pop stash'));
+  };
+
+  const handleCreateStash = () => {
+    if (!stashMessage.trim()) {
+      toast.error('Enter a stash message');
+      return;
+    }
+    dispatch(createGitStash(gitTarget, stashMessage.trim()))
+      .then(() => setStashMessage(''))
+      .catch((err) => toast.error(err?.message || 'Failed to create stash'));
+  };
+
+  const handleApplyStash = (index) => {
+    dispatch(applyGitStash(gitTarget, index))
+      .then(() => toast.success('Stash applied'))
+      .catch((err) => toast.error(err?.message || 'Failed to apply stash'));
+  };
+
+  const handleDropStash = (index) => {
+    if (!window.confirm('Delete this stash?')) return;
+    dispatch(dropGitStash(gitTarget, index))
+      .then(() => toast.success('Stash dropped'))
+      .catch((err) => toast.error(err?.message || 'Failed to drop stash'));
+  };
+
+  const handleContinueRebase = () => {
+    dispatch(continueGitRebase(gitTarget))
+      .then(() => toast.success('Rebase continued'))
+      .catch((err) => toast.error(err?.message || 'Failed to continue rebase'));
+  };
+
+  const handleAbortRebase = () => {
+    if (!window.confirm('Abort the current rebase? Your local commits will be restored.')) return;
+    dispatch(abortGitRebase(gitTarget))
+      .then(() => toast.success('Rebase aborted'))
+      .catch((err) => toast.error(err?.message || 'Failed to abort rebase'));
   };
 
   const handleCommit = () => {
@@ -399,6 +469,25 @@ const GitTab = ({ workspace }) => {
           ref={changesSidebarRef}
           style={{ width: changesPanelWidth, minWidth: changesPanelWidth, maxWidth: 'none' }}
         >
+          {(status?.isMerging || status?.isRebasing) && (
+            <div className={`git-state-banner ${status?.isMerging ? 'merge' : 'rebase'}`}>
+              <span className="git-state-banner-text">
+                {status?.isMerging
+                  ? 'Merge in progress — resolve conflicts or abort'
+                  : 'Rebase in progress — resolve conflicts, continue, or abort'}
+              </span>
+              <div className="git-state-banner-actions">
+                {status?.isRebasing && (
+                  <button className="git-action-btn" onClick={handleContinueRebase}>
+                    Continue
+                  </button>
+                )}
+                <button className="git-action-btn" onClick={status?.isMerging ? handleAbortMerge : handleAbortRebase}>
+                  Abort
+                </button>
+              </div>
+            </div>
+          )}
           {conflictedFiles.length > 0 && (
             <div className="git-section">
               <div className="git-section-title">
@@ -458,6 +547,176 @@ const GitTab = ({ workspace }) => {
           <div className="git-diff-container">
             <GitDiffViewer diff={diff} emptyMessage={selectedFile ? 'Loading diff...' : 'Select a file to view diff'} />
           </div>
+        </div>
+      </div>
+    );
+  };
+
+  const [newBranchName, setNewBranchName] = useState('');
+
+  const handleCreateBranch = () => {
+    if (!newBranchName.trim()) return;
+    dispatch(createGitBranch(gitTarget, newBranchName.trim(), currentBranch)).then(() => {
+      setNewBranchName('');
+    });
+  };
+
+  const handleDeleteBranch = (branch) => {
+    const protectedBranches = ['main', 'master'];
+    if (protectedBranches.includes(branch)) {
+      toast.error(`Cannot delete protected branch "${branch}"`);
+      return;
+    }
+    const confirmed = window.confirm(`Delete branch "${branch}"?`);
+    if (confirmed) {
+      dispatch(deleteGitBranch(gitTarget, branch, false));
+    }
+  };
+
+  const handleMergeBranch = (branch) => {
+    if (branch === currentBranch) {
+      toast.error('Cannot merge a branch into itself');
+      return;
+    }
+    dispatch(mergeGitBranch(gitTarget, branch));
+  };
+
+  const renderBranchesTab = () => {
+    if (loading) {
+      return (
+        <div className="git-loading">
+          <IconLoader2 className="animate-spin" size={18} strokeWidth={1.5} />
+          Loading branches...
+        </div>
+      );
+    }
+
+    if (!status?.isGitRepo) {
+      return <div className="git-empty-state">This workspace is not inside a Git repository.</div>;
+    }
+
+    return (
+      <div className="git-tab-content git-tab-content-vertical">
+        <div className="git-section">
+          <div className="git-section-title">
+            <span>Branches ({(branches || []).length})</span>
+          </div>
+          <div className="git-branch-create">
+            <input
+              type="text"
+              className="git-branch-input"
+              placeholder="New branch name"
+              value={newBranchName}
+              onChange={(e) => setNewBranchName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreateBranch()}
+            />
+            <button className="git-action-btn success" onClick={handleCreateBranch} disabled={!newBranchName.trim()}>
+              Create branch
+            </button>
+          </div>
+          {(branches || []).length === 0 ? (
+            <div className="git-empty-state">No branches found</div>
+          ) : (
+            <div className="git-branch-list">
+              {(branches || []).map((branch) => (
+                <div key={branch} className={`git-branch-row-item ${branch === currentBranch ? 'current' : ''}`}>
+                  <span className="git-branch-name">{branch}</span>
+                  <div className="git-branch-actions">
+                    {branch === currentBranch ? (
+                      <span className="git-branch-current-badge">current</span>
+                    ) : (
+                      <>
+                        <button
+                          className="git-action-btn primary"
+                          onClick={() => dispatch(checkoutGitBranch(gitTarget, branch))}
+                          title="Checkout"
+                        >
+                          Checkout
+                        </button>
+                        <button
+                          className="git-action-btn info"
+                          onClick={() => handleMergeBranch(branch)}
+                          title={`Merge ${branch} into ${currentBranch}`}
+                        >
+                          Merge
+                        </button>
+                        <button
+                          className="git-action-btn danger"
+                          onClick={() => handleDeleteBranch(branch)}
+                          title="Delete"
+                          disabled={['main', 'master'].includes(branch)}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderStashesTab = () => {
+    if (loading) {
+      return (
+        <div className="git-loading">
+          <IconLoader2 className="animate-spin" size={18} strokeWidth={1.5} />
+          Loading stashes...
+        </div>
+      );
+    }
+
+    if (!status?.isGitRepo) {
+      return <div className="git-empty-state">This workspace is not inside a Git repository.</div>;
+    }
+
+    return (
+      <div className="git-tab-content git-tab-content-vertical">
+        <div className="git-section">
+          <div className="git-section-title">
+            <span>Stashes ({(stashes || []).length})</span>
+          </div>
+          <div className="git-stash-create">
+            <input
+              type="text"
+              className="git-stash-input"
+              placeholder="Stash message"
+              value={stashMessage}
+              onChange={(e) => setStashMessage(e.target.value)}
+            />
+            <button className="git-action-btn primary" onClick={handleCreateStash}>
+              Stash
+            </button>
+          </div>
+          {(stashes || []).length === 0 ? (
+            <div className="git-empty-state">No stashes</div>
+          ) : (
+            <div className="git-stash-list">
+              {(stashes || []).map((stash) => (
+                <div key={stash.index} className="git-stash-row" title={stash.message}>
+                  <span className="git-stash-message">{stash.message}</span>
+                  <span className="git-stash-meta">
+                    {stash.filesChanged || 0} file{stash.filesChanged === 1 ? '' : 's'}
+                  </span>
+                  <div className="git-stash-actions">
+                    <button className="git-action-btn success" onClick={() => handleApplyStash(stash.index)}>
+                      Apply
+                    </button>
+                    <button className="git-action-btn primary" onClick={() => handlePopStash(stash.index)}>
+                      Pop
+                    </button>
+                    <button className="git-action-btn danger" onClick={() => handleDropStash(stash.index)}>
+                      Drop
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -545,16 +804,16 @@ const GitTab = ({ workspace }) => {
             </>
           )}
           <div className="git-header-actions">
-            <button className="git-action-btn" onClick={handleFetch} title="Fetch">
-              <IconCloudDownload size={14} strokeWidth={1.5} />
+            <button className="git-action-btn info" onClick={handleFetch} disabled={Boolean(operation)} title="Fetch">
+              {operation === 'fetch' ? <IconLoader2 className="animate-spin" size={14} strokeWidth={1.5} /> : <IconCloudDownload size={14} strokeWidth={1.5} />}
               Fetch
             </button>
-            <button className="git-action-btn" onClick={handlePull} title="Pull">
-              <IconDownload size={14} strokeWidth={1.5} />
+            <button className="git-action-btn primary" onClick={handlePull} disabled={Boolean(operation)} title="Pull">
+              {operation === 'pull' ? <IconLoader2 className="animate-spin" size={14} strokeWidth={1.5} /> : <IconDownload size={14} strokeWidth={1.5} />}
               Pull
             </button>
-            <button className="git-action-btn" onClick={handlePush} title="Push">
-              <IconUpload size={14} strokeWidth={1.5} />
+            <button className="git-action-btn success" onClick={handlePush} disabled={Boolean(operation)} title="Push">
+              {operation === 'push' ? <IconLoader2 className="animate-spin" size={14} strokeWidth={1.5} /> : <IconUpload size={14} strokeWidth={1.5} />}
               Push
             </button>
             <button className="git-action-btn" onClick={handleRefresh} title="Refresh">
@@ -616,6 +875,18 @@ const GitTab = ({ workspace }) => {
           Changes
         </div>
         <div
+          className={`git-tab ${activeTab === 'branches' ? 'active' : ''}`}
+          onClick={() => setActiveTab('branches')}
+        >
+          Branches
+        </div>
+        <div
+          className={`git-tab ${activeTab === 'stashes' ? 'active' : ''}`}
+          onClick={() => setActiveTab('stashes')}
+        >
+          Stashes
+        </div>
+        <div
           className={`git-tab ${activeTab === 'history' ? 'active' : ''}`}
           onClick={() => setActiveTab('history')}
         >
@@ -623,6 +894,8 @@ const GitTab = ({ workspace }) => {
         </div>
       </div>
       {activeTab === 'changes' && renderChangesTab()}
+      {activeTab === 'branches' && renderBranchesTab()}
+      {activeTab === 'stashes' && renderStashesTab()}
       {activeTab === 'history' && renderHistoryTab()}
     </StyledWrapper>
   );
