@@ -470,6 +470,33 @@ const checkoutRemoteGitBranch = async (win, { gitRootPath, remoteName, branchNam
   });
 };
 
+const initGitRepo = async (gitRootPath, remoteUrl = null) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const git = getSimpleGitInstanceForPath(gitRootPath);
+
+      // Initialize repository
+      await git.init(['--quiet']);
+
+      // Set default branch to main
+      await git.checkout(['-b', 'main']);
+
+      // Stage and commit existing workspace files
+      await git.add(['.']);
+      await git.commit('Initial commit', ['--quiet', '--no-verify']);
+
+      // Add remote if provided
+      if (remoteUrl?.trim()) {
+        await git.addRemote('origin', remoteUrl.trim());
+      }
+
+      resolve(true);
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+
 const createGitBranch = async (gitRootPath, branchName, sourceBranch = null) => {
   return new Promise((resolve, reject) => {
     const git = getSimpleGitInstanceForPath(gitRootPath);
@@ -1923,6 +1950,7 @@ module.exports = {
   getDefaultGitBranch,
   getCurrentGitBranch,
   checkoutGitBranch,
+  initGitRepo,
   createGitBranch,
   deleteGitBranch,
   mergeGitBranch,

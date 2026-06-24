@@ -171,6 +171,24 @@ export const getGitWorkspaceSettings = (state, workspaceUid) => {
   };
 };
 
+export const initGitRepo = (collection, remoteUrl = '') => async (dispatch) => {
+  if (!collection?.pathname) return;
+
+  try {
+    const { ipcRenderer } = window;
+    await ipcRenderer.invoke('renderer:init-git-repo', {
+      collectionPath: collection.pathname,
+      remoteUrl
+    });
+    await dispatch(fetchGitStatus(collection));
+    toast.success('Git repository initialized');
+  } catch (error) {
+    console.error('[Git] Error initializing repo:', error);
+    toast.error(error.message || 'Failed to initialize Git repository');
+    throw error;
+  }
+};
+
 export const fetchGitStatus = (collection, options = {}) => async (dispatch) => {
   if (!collection?.pathname) return;
 

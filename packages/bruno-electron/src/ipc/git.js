@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const {
   cloneGitRepository,
+  initGitRepo,
   getCollectionGitRootPath,
   getChangedFilesInCollectionGit,
   getCollectionGitLogs,
@@ -62,6 +63,22 @@ const registerGitIpc = (mainWindow) => {
       if (directoryCreated) {
         await removeDirectory(path);
       }
+      return Promise.reject(error);
+    }
+  }));
+
+  ipcMain.handle('renderer:init-git-repo', withRepoLock(async (event, { collectionPath, remoteUrl }) => {
+    try {
+      if (!collectionPath || !fs.existsSync(collectionPath)) {
+        throw new Error('Collection path does not exist');
+      }
+      const gitRootPath = getCollectionGitRootPath(collectionPath);
+      if (gitRootPath) {
+        throw new Error('This workspace is already a Git repository');
+      }
+      await initGitRepo(collectionPath, remoteUrl);
+      return true;
+    } catch (error) {
       return Promise.reject(error);
     }
   }));

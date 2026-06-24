@@ -153,6 +153,51 @@ const StyledWrapper = styled.div`
     padding: 0;
   }
 
+  .git-init-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    margin: 0 1rem 1rem 1rem;
+    border: 1px dashed ${(props) => props.theme.colors.text.link}40;
+    border-radius: ${(props) => props.theme.border.radius.base};
+    background: ${(props) => props.theme.colors.text.link}08;
+    color: ${(props) => props.theme.text};
+    font-size: ${(props) => props.theme.font.size.sm};
+  }
+
+  .git-init-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .git-init-title {
+    font-weight: 500;
+  }
+
+  .git-init-remote-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: ${(props) => props.theme.font.size.xs};
+    color: ${(props) => props.theme.colors.text.muted};
+  }
+
+  .git-init-remote-input {
+    width: 100%;
+    max-width: 420px;
+    padding: 0.5rem;
+    border: 1px solid ${(props) => props.theme.border.border1};
+    border-radius: ${(props) => props.theme.border.radius.base};
+    background: ${(props) => props.theme.background.base};
+    color: ${(props) => props.theme.text};
+    font-size: ${(props) => props.theme.font.size.sm};
+  }
+
   .git-tab-content-vertical {
     flex-direction: column;
     gap: 0;

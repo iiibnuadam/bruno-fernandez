@@ -24,6 +24,7 @@ import {
   commitGitChanges,
   checkoutGitBranch,
   createGitBranch,
+  initGitRepo,
   deleteGitBranch,
   mergeGitBranch,
   fetchGitChanges,
@@ -57,6 +58,7 @@ const GitTab = ({ workspace }) => {
   const [commitMessage, setCommitMessage] = useState('');
   const [stashMessage, setStashMessage] = useState('');
   const [operation, setOperation] = useState(null);
+  const [initRemoteUrl, setInitRemoteUrl] = useState('');
   const [historySelectedHash, setHistorySelectedHash] = useState(null);
   const [historyPanelWidth, setHistoryPanelWidth] = useState(320);
   const [isDraggingHistory, setIsDraggingHistory] = useState(false);
@@ -247,6 +249,12 @@ const GitTab = ({ workspace }) => {
       .then(() => toast.success('Pushed'))
       .catch((err) => toast.error(err?.message || 'Failed to push'))
       .finally(() => setOperation(null));
+  };
+
+  const handleInitGit = () => {
+    dispatch(initGitRepo(gitTarget, initRemoteUrl)).then(() => {
+      setInitRemoteUrl('');
+    });
   };
 
   const handleSelectFile = (file, type) => {
@@ -893,6 +901,28 @@ const GitTab = ({ workspace }) => {
           History
         </div>
       </div>
+      {!status?.isGitRepo && (
+        <div className="git-init-banner">
+          <div className="git-init-info">
+            <span className="git-init-title">This workspace is not a Git repository.</span>
+            <label className="git-init-remote-label">
+              Remote URL (optional)
+              <input
+                type="text"
+                className="git-init-remote-input"
+                placeholder="https://github.com/user/repo.git"
+                value={initRemoteUrl}
+                onChange={(e) => setInitRemoteUrl(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleInitGit()}
+              />
+            </label>
+          </div>
+          <button className="git-action-btn primary" onClick={handleInitGit}>
+            <IconBrandGit size={14} strokeWidth={1.5} />
+            Initialize Git
+          </button>
+        </div>
+      )}
       {activeTab === 'changes' && renderChangesTab()}
       {activeTab === 'branches' && renderBranchesTab()}
       {activeTab === 'stashes' && renderStashesTab()}
