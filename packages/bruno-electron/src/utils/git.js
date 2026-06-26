@@ -86,6 +86,35 @@ const getCollectionGitRepoUrl = async (gitRootPath) => {
   });
 };
 
+const ensurePullConfig = async (gitRootPath) => {
+  try {
+    const git = getSimpleGitInstanceForPath(gitRootPath);
+
+    let pullRebase = '';
+    try {
+      pullRebase = await git.raw(['config', '--local', 'pull.rebase']);
+    } catch {
+      // Config belum ada, tetap kosong.
+    }
+    if (!pullRebase || !pullRebase.trim()) {
+      await git.raw(['config', '--local', 'pull.rebase', 'false']);
+    }
+
+    let pullFf = '';
+    try {
+      pullFf = await git.raw(['config', '--local', 'pull.ff']);
+    } catch {
+      // Config belum ada, tetap kosong.
+    }
+    if (!pullFf || !pullFf.trim()) {
+      await git.raw(['config', '--local', 'pull.ff', 'only']);
+    }
+  } catch (error) {
+    // Jangan gagalkan pull hanya karena gagal set config.
+    console.warn('[git] Failed to ensure pull config:', error.message);
+  }
+};
+
 const initGit = async (gitRootPath) => {
   const git = getSimpleGitInstanceForPath(gitRootPath);
   await git.init();
@@ -360,16 +389,50 @@ const getUnstagedFileDiff = async (gitRootPath, filePath) => {
   });
 };
 
-const getCollectionGitBranches = async (gitRootPath) => {
+const getCollectionGitBranches = async (gitRootPath, includeRemote = false) => {
   return new Promise((resolve, reject) => {
     const git = getSimpleGitInstanceForPath(gitRootPath);
-    git.branchLocal((err, branches) => {
-      if (err) {
-        reject(err);
-        return;
+
+    const fetchRemoteBranches = async () => {
+      if (!includeRemote) {
+        return [];
       }
-      resolve(branches.all);
-    });
+
+      try {
+        const remotes = await git.getRemotes(true);
+        const hasOrigin = remotes.some((remote) => remote.name === 'origin');
+        if (!hasOrigin) {
+          return [];
+        }
+
+        await git.fetch('origin');
+        const remoteBranches = await git.branch(['-r']);
+        if (!remoteBranches || !remoteBranches.all) {
+          return [];
+        }
+        return remoteBranches.all
+          .filter((branch) => branch.startsWith('origin/'))
+          .map((branch) => branch.replace(/^origin\//, ''));
+      } catch (error) {
+        console.warn('[git] Failed to fetch remote branches:', error.message);
+        return [];
+      }
+    };
+
+    fetchRemoteBranches()
+      .then((remoteBranchNames) => {
+        git.branchLocal((err, branches) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          const localBranchNames = branches.all || [];
+          const allBranches = Array.from(new Set([...localBranchNames, ...remoteBranchNames]));
+          resolve(allBranches);
+        });
+      })
+      .catch((error) => reject(error));
   });
 };
 
@@ -405,12 +468,62 @@ const checkoutGitBranch = async (win, { gitRootPath, branchName, processUid, sho
     git.outputHandler(handleGitOutput({ win, processUid }));
 
     const checkoutArgs = shouldCreate ? ['-b', branchName, '--progress'] : branchName;
-    git.checkout(checkoutArgs, (err, res) => {
+
+    const doCheckout = () => {
+      git.checkout(checkoutArgs, (err, res) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(res);
+      });
+    };
+
+    if (shouldCreate) {
+      doCheckout();
+      return;
+    }
+
+    // Kalau branch belum ada secara local, cek apakah tersedia di remote.
+    // Kalau iya, checkout sebagai tracking branch.
+    git.branchLocal(async (err, localBranches) => {
       if (err) {
         reject(err);
         return;
       }
-      resolve(res);
+
+      const localExists = localBranches.all.includes(branchName);
+      if (localExists) {
+        doCheckout();
+        return;
+      }
+
+      try {
+        const remoteBranches = await new Promise((res, rej) => {
+          git.branch(['-r'], (branchErr, branches) => {
+            if (branchErr) {
+              rej(branchErr);
+              return;
+            }
+            res(branches.all);
+          });
+        });
+
+        const remoteBranchName = `origin/${branchName}`;
+        if (remoteBranches.includes(remoteBranchName)) {
+          git.checkout(['-b', branchName, '--track', remoteBranchName, '--progress'], (checkoutErr, res) => {
+            if (checkoutErr) {
+              reject(checkoutErr);
+              return;
+            }
+            resolve(res);
+          });
+        } else {
+          doCheckout();
+        }
+      } catch (error) {
+        doCheckout();
+      }
     });
   });
 };
@@ -746,6 +859,11 @@ const pullGitChanges = async (win, data) => {
   if (!validStrategies.includes(strategy)) {
     throw new Error('Invalid strategy');
   }
+
+  // Pastikan repo punya konfigurasi pull sebelum pull pertama kali,
+  // supaya Git tidak error/bingung saat branch local dan remote divergen.
+  await ensurePullConfig(gitRootPath);
+
   return new Promise((resolve, reject) => {
     const git = getSimpleGitInstanceForPath(gitRootPath);
     git.outputHandler(handleGitOutput({ win, processUid, sendStdout: true })).pull(remote, remoteBranch, [strategy], (err, res) => {

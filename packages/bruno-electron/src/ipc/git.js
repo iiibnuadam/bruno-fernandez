@@ -92,7 +92,7 @@ const registerGitIpc = (mainWindow) => {
 
       const [status, branches, currentBranch, aheadBehind] = await Promise.all([
         getChangedFilesInCollectionGit(gitRootPath, collectionPath),
-        getCollectionGitBranches(gitRootPath),
+        getCollectionGitBranches(gitRootPath, true),
         getCurrentGitBranch(gitRootPath),
         getAheadBehindCount(gitRootPath)
       ]);
