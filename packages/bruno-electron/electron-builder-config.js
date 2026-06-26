@@ -1,8 +1,14 @@
-require('dotenv').config({ path: process.env.DOTENV_PATH });
+const { getWhiteLabel, writeRuntimeConfig } = require('./white-label.config');
+
+// Resolve branding from env vars and persist it so the packaged app uses the
+// same values at runtime even when the build env vars are not present.
+const wl = getWhiteLabel();
+writeRuntimeConfig(wl);
 
 const config = {
-  appId: 'com.pakpos.app',
-  productName: 'PAKPOS',
+  appId: wl.appId,
+  productName: wl.productName,
+  copyright: `Copyright © ${new Date().getFullYear()} ${wl.copyrightOwner}`,
   electronVersion: '37.6.1',
   directories: {
     buildResources: 'resources',
@@ -17,7 +23,7 @@ const config = {
   files: ['**/*'],
   // afterSign: 'notarize.js', // disabled for local unsigned builds
   mac: {
-    artifactName: '${name}_${version}_${arch}_${os}.${ext}',
+    artifactName: '${productName}_${version}_${arch}_${os}.${ext}',
     category: 'public.app-category.developer-tools',
     target: [
       {
@@ -29,7 +35,7 @@ const config = {
         arch: ['x64', 'arm64']
       }
     ],
-    icon: 'resources/icons/mac/icon.icns',
+    icon: wl.iconMac,
     hardenedRuntime: false,
     identity: null,
     entitlements: 'resources/entitlements.mac.plist',
@@ -38,16 +44,16 @@ const config = {
     gatekeeperAssess: false,
     protocols: [
       {
-        name: 'PAKPOS',
+        name: wl.productName,
         schemes: [
-          'pakpos'
+          wl.protocol
         ]
       }
     ]
   },
   linux: {
-    artifactName: '${name}_${version}_${arch}_${os}.${ext}',
-    icon: 'resources/icons/png',
+    artifactName: '${productName}_${version}_${arch}_${os}.${ext}',
+    icon: wl.iconLinux,
     target: [
       {
         target: 'AppImage',
@@ -64,13 +70,13 @@ const config = {
     ],
     protocols: [
       {
-        name: 'PAKPOS',
-        schemes: ['pakpos']
+        name: wl.productName,
+        schemes: [wl.protocol]
       }
     ],
     category: 'Development',
     desktop: {
-      MimeType: 'x-scheme-handler/pakpos;'
+      MimeType: `x-scheme-handler/${wl.protocol};`
     }
   },
   deb: {
@@ -89,8 +95,8 @@ const config = {
     ]
   },
   win: {
-    artifactName: '${name}_${version}_${arch}_win.${ext}',
-    icon: 'resources/icons/win/icon.ico',
+    artifactName: '${productName}_${version}_${arch}_win.${ext}',
+    icon: wl.iconWin,
     target: [
       {
         target: 'nsis',
@@ -98,7 +104,7 @@ const config = {
       }
     ],
     sign: null,
-    publisherName: 'PAKPOS'
+    publisherName: wl.publisherName
   },
   nsis: {
     include: 'resources/installer.nsh',
